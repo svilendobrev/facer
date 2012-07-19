@@ -15,7 +15,8 @@ abstract faces cannot be instantiated - only faces with fully all methods implem
 WARNING/TODO: implementation methods are NOT checked for compliance with the declaration
 
 example:
-''' 
+
+```
 class ChannelFace( FaceDeclaration):     #pure declaration - abstract face
     class Types( Types):
         channel = Types.intplus
@@ -37,4 +38,11 @@ class MoreChannelFace( ChannelFace):  #implementing one method, declaring one mo
 class TheChannelFace( MoreChannelFace):  #implementing all methods
     def new_channel( me, program, name =None, **kargs): ...
     def like_program( me, program, dislike =False): ...
-'''
+```
+
+see example/ directory :
+
+ * requester.py : method-wrapper as web-view
+ * webform.py   : render a facer into HTML-page of form-per-method
+ * websimu.py   : simulator of web-API, using webform. served via werkzeug
+ * face4django.py: links (a missing) implementation with django
