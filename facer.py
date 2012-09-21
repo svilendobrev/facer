@@ -4,7 +4,8 @@
 types, cardinality, optionality; inheritance, specialization, cloning. Use
 visitors to do/generate all else.
 
-    svilen.dobrev 2010
+    svilen.dobrev 2010-
+    hristo stanev 2012
 
     methoddecl: name, argdecls, returns, features
     argdecl:    name, type/converter, optional/defaultvalue
@@ -37,7 +38,7 @@ class TheChannelFace( MoreChannelFace):  #implementing all methods
     def like_program( me, program, dislike =False): ...
 '''
 
-from svd_util.struct import DictAttr, Struct    #why Struct?
+from svd_util.struct import DictAttr
 try:
     from collections import OrderedDict as dictOrder
 except:
@@ -58,6 +59,7 @@ class Types( object):
         return all
 
     class typedef( object):
+        empty_values= (None, '', [], (), {})
         def __init__( me, type, *validators, **kw):
             me.type = type
             assert not isinstance( type, me.__class__)
@@ -68,6 +70,9 @@ class Types( object):
             me.prevalidators = [
                 v.__get__(123) if isinstance( v, staticmethod) else v    #staticmethod still inside classdecl
                 for v in prevalidators]
+
+            for k,v in kw.iteritems():
+                setattr( me, k, v)
 
         def validate( me, v):
             for valider in me.prevalidators + [ me.type ] + me.validators + [ me._validate ]:
@@ -111,10 +116,34 @@ class Types( object):
         def __init__( me, type, typename =None):
             me.type = Types.typedef.convert( type)
             me.typename = typename
+            me._requires = []
+            me._contradicts = []    #TODO: move out into Method
+
+        def validate( me, v):
+            if v in me.type.empty_values:
+                if me.is_optional:
+                    return v
+            return me.type.validate(v)
 
         def optional( me, default_value =None, is_optional =True ):
             me.is_optional = is_optional
             me.default_value = default_value
+            return me
+
+        def requires( me, *names):
+            if not names: return
+            if len( names) > 1:
+                me._requires.append( names)
+            else:
+                me._requires.append( names[0])
+            return me
+
+        def contradicts( me, *names):
+            me._contradicts += list(names)
+            return me
+
+        def requires_either( me, *names):
+            me._requires += list(names)
             return me
 
         def str( me, withname =False):
@@ -126,6 +155,10 @@ class Types( object):
                 r+= '; optional'
                 if me.default_value is not None:
                     r+= ' ='+str(me.default_value)
+            if me._requires:
+                r+= '; requires ' + ','.join( str(z) for z in me._requires )
+            if me._contradicts:
+                r+= '; contradicts ' + ','.join( me._contradicts)
             return r+'>'
         __str__ = str
 
@@ -293,6 +326,43 @@ def optional( type, default_value =None):
     return v.optional( default_value)
 
 
+class ValidationError( RuntimeError):
+    def __init__( me, data=None, msg=None):
+        me.data = data
+        RuntimeError.__init__( me, msg)
+
+    @property
+    def msg( me):
+        return me.message
+
+class MethodValidationError( ValidationError):
+    def __init__( me, data, face=None, methname=None, msg=None):
+        me.face= face
+        me.methname = methname
+        ValidationError.__init__( me, data, msg=msg)
+
+class InvalidValue( MethodValidationError):
+    def __init__( me, data, argname, exp_type, **kargs):
+        #msg = '%(data)s expected: %(exp_type)s' % locals()
+        me.argname = argname
+        MethodValidationError.__init__( me, data, **kargs)
+
+class MissingArguments( MethodValidationError): pass
+
+class ExtraneousArguments( MethodValidationError): pass
+
+class ContradictoryArguments( MethodValidationError):
+    def __init__( me, data, argname, **kargs):
+        me.argname = argname
+        msg = 'cannot be used together with %s' % data
+        MethodValidationError.__init__( me, data, msg=msg, **kargs)
+
+class MissingImplementations( InvalidValue):
+    pass
+
+
+
+
 class Method( object):
     _returns = None
     #_inputs  = None
@@ -301,6 +371,8 @@ class Method( object):
     def __init__( me, **ka):
         me._inputs = me._convert_dict( ka) or {} #None
         me._features = []
+        me._errors = {}
+
     def features( me, *ff):
         me._features += ff
         return me
@@ -316,6 +388,10 @@ class Method( object):
                     if x is not None]
             if len(a)==1: a=a[0]
         me._returns = a or me._convert_dict( ka) or None
+        return me
+    def error( me, e, message=None):
+        l = me._errors.setdefault( e, [])
+        if message: l.append( message)
         return me
     def doc( me, text):
         me._doc = text
@@ -360,17 +436,33 @@ class Method( object):
                     v = params[k]
                     #if isinstance(v,list): v = v[0]
                     try:
-                        v = vdecl.type.validate( v)
+                        v = vdecl.validate( v)
                         #XXX ???
                         #if v is vdecl.default_value and not vdecl.is_optional:
                         #    raise KeyError( v)
                     except Exception, e:
-                        facename = face.__name__
-                        type = vdecl.type
-                        #raise
-                        raise RuntimeError(
-                            '''cannot validate argument %(k)r of method %(facename)s.%(name)s: %(e)s
-                            expected type: %(type)s''' % locals() )
+                        raise InvalidValue( e, argname=k, exp_type=vdecl.type,
+                                        face=face, methname=name)
+
+                    for n in vdecl._contradicts:
+                        if n in params:
+                            raise ContradictoryArguments( n, argname=k)
+
+                    requires_ok = not vdecl._requires
+                    for req in vdecl._requires:
+                        either = not isinstance( req, (list,tuple))
+                        if either:
+                            if req in params:
+                                requires_ok = True
+                                break
+                        elif not [ n for n in req if n not in params ]:
+                            requires_ok = True
+                            break
+                    if not requires_ok:
+                        req = vdecl._requires[0]
+                        if not isinstance( req, (list,tuple)):
+                            req = [ req]
+                        missing += [ (n,me._inputs[n]) for n in req ]
                     del extra[k]
                 elif vdecl.is_optional:
                     v = vdecl.default_value
@@ -379,14 +471,10 @@ class Method( object):
                     continue
                 r[k] = v
 
-        if missing: raise RuntimeError( 'missing mandatory arguments: '
-                        +','.join( k for k,d in missing)
-                        +'\n in method ' + me.strface( face,name)
-                    )
-        if extra: raise RuntimeError( 'unknown extraneous arguments: '
-                        +','.join( repr(k) for k in extra)
-                        +'\n in method ' + me.strface( face,name)
-                    )
+        if missing:
+            raise MissingArguments( [ k for k,d in missing ], face=face, methname=name)
+        if extra:
+            raise ExtraneousArguments( [ repr(k) for k in extra ], face=face, methname=name)
         return r
 
     NONE = 'dont'
@@ -551,7 +639,7 @@ class FaceDeclaration( object):
             #if inst is a klas, it would be unbound impl or Method or None (if not subklas at all)
             #if impl is m: impl = None   #??same as isinstance (impl, Method)
             if isinstance( impl, Method): impl= None
-            yield Struct( face= klas, name= k, decl= m, impl= impl)
+            yield DictAttr( face= klas, name= k, decl= m, impl= impl)
             #cases:
             # inst is the klas:     inst.k is klas.k (Method or unbound impl)
             # inst is a subklas:    inst.k may be new (Method or unbound impl), or klas.k (Method or unbound impl)
@@ -580,7 +668,7 @@ class FaceDeclaration( object):
         #assert not me.__dict__.get( '_methods_dict'), 'dont replace already used type, first inherit it'
         r = dictOrder()
         for w in me.methods_walk():
-            w = Struct( w.__dict__)
+            w = DictAttr( w.__dict__)
             w.decl = w.decl.clone_new_types( types= newtypes)
             r[ w.name] = w
         me._methods_dict = r
@@ -595,11 +683,7 @@ class FaceDeclaration( object):
     def __init__( me):
         undefs = me.methods_unimplemented()
         if undefs and me.ERROR_IF_UNDEFS:
-            raise RuntimeError, '\n'.join(
-                ['missing implementations of these methods:' ] + [
-                    '  ' + w.face.__name__+'.'+w.name +': '+ str(w.decl)
-                        for w in undefs
-                ] )
+            raise MissingImplementations( undefs)
 
     @classmethod
     def _type_of_arg_in_method( me, methodname, argname):
@@ -711,7 +795,7 @@ if __name__ == '__main__':
     def errtest( func, *args, **kargs):
         try:
             func( *args, **kargs)
-        except RuntimeError, e: print e
+        except ValidationError, e: print e
         else: assert 0*'didnt raise error'
 
     errtest( MoreChannelFace )   #missing impl
