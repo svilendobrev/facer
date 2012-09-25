@@ -21,20 +21,22 @@ class websimu:
     title = 'dobr-e test simulator'
 
     ROOT = ''
+    ENDSLASH = False
     @classmethod
     def lister( me, html =False):
         hidden_fields = dict( dbg=1)
         if html: hidden_fields.update( html=1)
         return Response( webform.html( me.iface,
-            title= me.title,
-            root= me.ROOT,
-            hidden_fields= hidden_fields,
-            help= '''\
+            title   = me.title,
+            root    = me.ROOT,
+            hidden_fields = hidden_fields,
+            endslash = me.ENDSLASH,
+            help    = '''\
 default simulator result is json (as text/plain, not application/json).
 url-param dbg=1 makes a dict( req, url, result=..) - all links above are this way.
 url-param txt=1 makes a python repr, not json
 ''' ),
-            content_type= 'text/html',
+            content_type = 'text/html',
             )
 
     @classmethod
@@ -164,7 +166,6 @@ if __name__ == '__main__':
 
     class websimu1( websimu):
         iface = simu.simu   #the actual simulator as face-instance
-        title = 'dobr test simulator'
 
         @classmethod
         def fakedata( me):

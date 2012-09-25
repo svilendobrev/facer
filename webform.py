@@ -27,7 +27,7 @@ js2remove_empty_form_fields = '''
 nbsp = '&nbsp; '
 
 def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fields =True,
-            hidden_fields ={}, errors= None, endslash ='/'):
+            hidden_fields ={}, errors= None, endslash =False):
     returns = decl._returns and cgi.escape( str( decl._returns))
     inputs = decl.sorted_inputs()
     #errors = errors.get( decl.name) if errors else None
@@ -67,6 +67,8 @@ def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fi
             break
     else:
         method = 'GET'
+
+    endslash = endslash and '/' or ''
     r = '''
  <form name={decl.name} target={target} method="{method}" action="{root}{decl.name}{endslash}" >
  <table width=100% border=0 cellspacing=0><tr><td width=30%>

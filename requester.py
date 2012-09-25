@@ -1,3 +1,6 @@
+
+'wrap facer.methods into http-view-handlers'
+
 if 0:
     def declmethod4user( **ka):
         return Method( **ka).features( 'useridentified')
@@ -12,10 +15,13 @@ if 0:
 
 class requester:
     'method wrapper into web-view'
+
     HttpResponse = None #..
-    DOLOGIN = 1
+    DOLOGIN = True #always require login - ignore .useridentified or not
+
     @property
     def NOLOGIN( me): return not me.checklogin
+
     def __init__( me, instmethod_meta, face =None, as_generator =False, result_is_tuple =True, checklogin =None):
         assert instmethod_meta.impl, 'no implementation: '+str(instmethod_meta)
         me.as_generator = as_generator
@@ -45,7 +51,7 @@ class requester:
     def _handle( me, request, meta, kargs):
         print meta.name, 'as_generator=', me.as_generator, 'result_is_tuple=', me.result_is_tuple, kargs
         if me.as_generator:
-            return HttpResponse( (data for ok,data in meta.impl( as_generator=True, **kargs) if ok) )
+            return me.HttpResponse( (data for ok,data in meta.impl( as_generator=True, **kargs) if ok) )
 
         try:
             r = meta.impl( **kargs)
@@ -56,8 +62,8 @@ class requester:
         if me.result_is_tuple:
             http_ok, data = r
         else: data = r
-        if isinstance( data, HttpResponse): return data
-        return HttpResponse( data)
+        if isinstance( data, me.HttpResponse): return data
+        return me.HttpResponse( data)
 
     __call__ = handle_login     #default
 
@@ -73,4 +79,4 @@ def url4webpy( face, requester, face_subset =None):
     return [ ('^'+pfx +what.name, requester( what, result_is_tuple= False, as_generator= False))
             for what in face_subset.methods_walk_instance( face) ]
 
-
+# vim:ts=4:sw=4:expandtab
