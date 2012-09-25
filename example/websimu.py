@@ -34,7 +34,7 @@ default simulator result is json (as text/plain, not application/json).
 url-param dbg=1 makes a dict( req, url, result=..) - all links above are this way.
 url-param txt=1 makes a python repr, not json
 ''' ),
-            content_type= 'html',
+            content_type= 'text/html',
             )
 
     @classmethod
@@ -50,7 +50,7 @@ url-param txt=1 makes a python repr, not json
     @classmethod
     def setup( me, rules =()):
         me.url_map = Map(
-            [ Rule( '/'+what.name, endpoint= what )
+            [ Rule( '/'+what.name, endpoint= what.impl )
             for what in me.iface.methods_walk_instance( me.iface) ]
             + [ Rule( '/', endpoint= me.lister),
                 #Rule( '/save', endpoint= simu.data_save ),
@@ -77,15 +77,17 @@ url-param txt=1 makes a python repr, not json
     class aRequest( Request):
         parameter_storage_class = ImmutableDict     #?x=1&x=2 -> x=2
 
-    @aRequest.application
     @classmethod
+    @aRequest.application
     def app( me, request):
+        print me.url_map
         handler, values = me.url_map.bind_to_environ( request.environ ).match()
         #params = dict( request.values)
         params = dict( request.form or request.args)
         if callable( handler):
             name = handler.__name__
             meta = None
+            is_html = False
         else:
             meta = handler
             handler = meta.impl

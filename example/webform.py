@@ -26,10 +26,12 @@ js2remove_empty_form_fields = '''
 
 nbsp = '&nbsp; '
 
-def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fields =True, hidden_fields ={}, errors=None):
+def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fields =True,
+            hidden_fields ={}, errors= None, endslash ='/'):
     returns = decl._returns and cgi.escape( str( decl._returns))
     inputs = decl.sorted_inputs()
-    errors = errors.get( decl.name) if errors else None
+    #errors = errors.get( decl.name) if errors else None
+    errors = decl._errors
     if 0:
         import dirty.html as h
         import dirty
@@ -66,18 +68,24 @@ def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fi
     else:
         method = 'GET'
     r = '''
- <form name={decl.name} target={target} method="{method}" action="{root}{decl.name}/" >
+ <form name={decl.name} target={target} method="{method}" action="{root}{decl.name}{endslash}" >
  <table width=100% border=0 cellspacing=0><tr><td width=30%>
   ''' + sendbutton
     if returns: r += '''
-  <br> returns: {returns}'''
+  <br><b> returns:</b> {returns}'''
+
     if errors:
-        r += '''
-  <br> errors: {errors}'''
-        if isinstance( errors, dict):
-            errors = '<br>' + '<br>'.join([ code +':'+ txt for code,txt in errors.iteritems() ])
-        elif isinstance( errors, (tuple,list)):
-            errors = ','.join( errors)
+        ee = []
+        errs = [ e.message or str(e) for e in errors if e.err]
+        if errs: ee += ['<b> errors:</b>'] + errs
+        noerrs = [ e.message +': ' + e.noerror for e in errors if not e.err]
+        if noerrs: ee += [ '<b> noerrors:</b>'] +  noerrs
+        r += ''.join( '<br>'+e for e in ee)
+        if 0:
+            if isinstance( errors, dict):
+                errors = '<br>' + '<br>'.join([ code +':'+ txt for code,txt in errors.iteritems() ])
+            elif isinstance( errors, (tuple,list)):
+                errors = ', '.join( str(e) for e in errors)
     r = r.format( **locals())
     r += '<td> ' + '\n'.join(
         '<input type=hidden name='+k+' value='+str(v)+'>'
@@ -151,7 +159,11 @@ def html( iface, title ='simulator', help ='', root ='',
 </table>
 '''
     if help: r += '<hr>' + '\n<br>'.join( help.strip().split('\n'))
-    return r + '<hr>' + '\n<br>'.join( [cgi.escape( x) for x in url_doco( iface, sepattrs=' ; ') ])
+    urls = [cgi.escape( x) for x in url_doco( iface, sepattrs=' ; ') ]
+    return r + '''
+<hr>
+<b>Valid URLs</b>:<br>
+''' + '\n<br>'.join( urls)
 
 #''' + '\n &nbsp; '.join( ahref( n,u) for n,u in buttonsurl) + '''
 

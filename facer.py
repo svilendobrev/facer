@@ -327,19 +327,25 @@ def optional( type, default_value =None):
 
 
 class ValidationError( RuntimeError):
-    def __init__( me, data=None, msg=None):
-        me.data = data
-        RuntimeError.__init__( me, msg)
-
-    @property
-    def msg( me):
-        return me.message
+    #def __init__( me, data =None, message =None):
+    #    me.data = data
+    #    RuntimeError.__init__( me, message)
+    #@property
+    #def msg( me): return me.message or me.data
+    pass
 
 class MethodValidationError( ValidationError):
-    def __init__( me, data, face=None, methname=None, msg=None):
-        me.face= face
+    def __init__( me, items, face, methname ='', message =''):
+        me.items = items
+        me.face = face
         me.methname = methname
-        ValidationError.__init__( me, data, msg=msg)
+        if methname: methname = '.'+methname
+        if message: message = ' '+message
+        items = ', '.join( str(s) for s in items )
+        ValidationError.__init__( me, '{face}{methname}: {items}{message}'.format( **locals()) )
+class MissingArguments( MethodValidationError): pass
+class ExtraneousArguments( MethodValidationError): pass
+class MissingImplementations( MethodValidationError): pass
 
 class InvalidValue( MethodValidationError):
     def __init__( me, data, argname, exp_type, **kargs):
@@ -347,18 +353,12 @@ class InvalidValue( MethodValidationError):
         me.argname = argname
         MethodValidationError.__init__( me, data, **kargs)
 
-class MissingArguments( MethodValidationError): pass
-
-class ExtraneousArguments( MethodValidationError): pass
-
-class ContradictoryArguments( MethodValidationError):
+class ContradictingArguments( MethodValidationError):
     def __init__( me, data, argname, **kargs):
         me.argname = argname
-        msg = 'cannot be used together with %s' % data
-        MethodValidationError.__init__( me, data, msg=msg, **kargs)
+        #msg = 'cannot be used together with %s' % data
+        MethodValidationError.__init__( me, [argname] + data, **kargs)
 
-class MissingImplementations( InvalidValue):
-    pass
 
 
 
@@ -371,7 +371,7 @@ class Method( object):
     def __init__( me, **ka):
         me._inputs = me._convert_dict( ka) or {} #None
         me._features = []
-        me._errors = {}
+        me._errors = []
 
     def features( me, *ff):
         me._features += ff
@@ -389,9 +389,8 @@ class Method( object):
             if len(a)==1: a=a[0]
         me._returns = a or me._convert_dict( ka) or None
         return me
-    def error( me, e, message=None):
-        l = me._errors.setdefault( e, [])
-        if message: l.append( message)
+    def error( me, err, message =None, **ka):
+        me._errors.append( DictAttr( ka, err= err, message= message))
         return me
     def doc( me, text):
         me._doc = text
@@ -446,7 +445,7 @@ class Method( object):
 
                     for n in vdecl._contradicts:
                         if n in params:
-                            raise ContradictoryArguments( n, argname=k)
+                            raise ContradictingArguments( n, argname=k)
 
                     requires_ok = not vdecl._requires
                     for req in vdecl._requires:
@@ -683,7 +682,7 @@ class FaceDeclaration( object):
     def __init__( me):
         undefs = me.methods_unimplemented()
         if undefs and me.ERROR_IF_UNDEFS:
-            raise MissingImplementations( undefs)
+            raise MissingImplementations( [ u.name for u in undefs], face= me.__class__)
 
     @classmethod
     def _type_of_arg_in_method( me, methodname, argname):
