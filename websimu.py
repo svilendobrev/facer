@@ -18,24 +18,26 @@ except ImportError:
 class websimu:
 
     iface = None #the actual simulator as face-instance
-    title = 'dobr-e test simulator'
 
-    ROOT = ''
-    ENDSLASH = False
+    FORM_ARGS = dict(
+        title = 'dobr-e test simulator',
+        root = '',
+        endslash = False,
+        #textedit_size = 25,
+        )
     @classmethod
     def lister( me, html =False):
         hidden_fields = dict( dbg=1)
         if html: hidden_fields.update( html=1)
         return Response( webform.html( me.iface,
-            title   = me.title,
-            root    = me.ROOT,
             hidden_fields = hidden_fields,
-            endslash = me.ENDSLASH,
             help    = '''\
 default simulator result is json (as text/plain, not application/json).
 url-param dbg=1 makes a dict( req, url, result=..) - all links above are this way.
 url-param txt=1 makes a python repr, not json
-''' ),
+''',
+            **me.FORM_ARGS
+            ),
             content_type = 'text/html',
             )
 
