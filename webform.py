@@ -2,6 +2,8 @@
 
 'render facer-API as HTML page with form-per-method'
 
+#TODO abandon textual html, use some of dirty or forgetHTML, or some else
+
 from facer import url_doco, Types
 import cgi
 
@@ -27,7 +29,7 @@ js2remove_empty_form_fields = '''
 nbsp = '&nbsp; '
 
 def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fields =True,
-            hidden_fields ={}, errors= None, endslash =False):
+            hidden_fields ={}, errors= None, endslash =False, with_doc =False):
     returns = decl._returns and cgi.escape( str( decl._returns))
     inputs = decl.sorted_inputs()
     #errors = errors.get( decl.name) if errors else None
@@ -89,7 +91,9 @@ def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fi
             elif isinstance( errors, (tuple,list)):
                 errors = ', '.join( str(e) for e in errors)
     r = r.format( **locals())
-    r += '<td> ' + '\n'.join(
+    r += '\n<td>\n'
+    if with_doc and decl.doc: r += '<i> '+cgi.escape( decl._doc )+'</i><br>\n'
+    r += '\n'.join(
         '<input type=hidden name='+k+' value='+str(v)+'>'
         for k,v in hidden_fields.items()
         )
@@ -135,6 +139,7 @@ def button( *a,**k): return ahref( button=True, *a,**k)
 def html( iface, title ='simulator', help ='', root ='',
         target ='out',
         remove_empty_form_fields =True,
+        sorter =lambda x: x,
         **kargs ):
     base = root
     r = ('''\
@@ -154,7 +159,7 @@ def html( iface, title ='simulator', help ='', root ='',
   <div style="overflow:auto; height:100%;">
 ''' + '\n<hr>'.join(
         form( what.decl, target= target, remove_empty_form_fields=remove_empty_form_fields, **kargs)
-        for what in iface.methods_walk_instance( iface)
+        for what in sorter( iface.methods_walk_instance( iface))
 ) + '''
  </div>
  <td height=100%> <iframe name=out width=100% height=100%> no-iframe? </iframe>

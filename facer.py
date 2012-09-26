@@ -321,9 +321,10 @@ if 0:
     Types.__dict__.update( (k, isinstance(v,_functype) and staticmethod(v) or v) for k,v in _types.iteritems() )
     del _types
 
-def optional( type, default_value =None):
+def optional( type, default_value =None, default =None):
     v = Types.valuedef.convert( type)
-    return v.optional( default_value)
+    if default is None: default = default_value
+    return v.optional( default)
 
 
 class ValidationError( RuntimeError):
