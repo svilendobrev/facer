@@ -5,7 +5,7 @@
 #TODO abandon textual html, use some of dirty or forgetHTML, or some else
 
 from facer import url_doco, Types
-import cgi
+from cgi import escape
 
 js2remove_empty_form_fields = '''
 <script language="javascript">
@@ -30,7 +30,7 @@ nbsp = '&nbsp; '
 
 def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fields =True,
             hidden_fields ={}, errors= None, endslash =False, with_doc =False):
-    returns = decl._returns and cgi.escape( str( decl._returns))
+    returns = decl._returns and escape( str( decl._returns))
     inputs = decl.sorted_inputs()
     #errors = errors.get( decl.name) if errors else None
     errors = decl._errors
@@ -79,20 +79,24 @@ def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fi
   <br><b> returns:</b> {returns}'''
 
     if errors:
-        ee = []
-        errs = [ e.message or str(e) for e in errors if e.err]
-        if errs: ee += ['<b> errors:</b>'] + errs
-        noerrs = [ e.message +': ' + e.noerror for e in errors if not e.err]
-        if noerrs: ee += [ '<b> noerrors:</b>'] +  noerrs
-        r += ''.join( '<br>'+e for e in ee)
-        if 0:
-            if isinstance( errors, dict):
-                errors = '<br>' + '<br>'.join([ code +':'+ txt for code,txt in errors.iteritems() ])
-            elif isinstance( errors, (tuple,list)):
-                errors = ', '.join( str(e) for e in errors)
+        #error: DictAttr( err= err(), message, noerror= optional why
+        #err: DictAttr( doc, ..)
+
+        for etitle, errs in [
+                [ 'errors', [ e.message or e.err.doc
+                    for e in errors if not e.get('noerror') ]],
+                [ 'noerrors', [ (e.message or e.err.doc) +': ' + e.noerror
+                    for e in errors if e.get('noerror') ]]
+            ]:
+            if errs:
+                r += ''.join( '<br>'+e
+                    for e in [ '<b> '+etitle+':</b>'
+                             ] + [ '-'+escape( e) for e in errs
+                             ] )
+
     r = r.format( **locals())
     r += '\n<td>\n'
-    if with_doc and decl.doc: r += '<i> '+cgi.escape( decl._doc )+'</i><br>\n'
+    if with_doc and decl.doc: r += '<i> '+escape( decl._doc )+'</i><br>\n'
     r += '\n'.join(
         '<input type=hidden name='+k+' value='+str(v)+'>'
         for k,v in hidden_fields.items()
@@ -119,14 +123,14 @@ def form( decl, root ='', target ='out', textedit_size =18, remove_empty_form_fi
                 i += 'type=checkbox value=1>'
             else:
                 i += 'value="" size='+str(textedit_size)+'>'
-        ri.append( i + ' ' + cgi.escape( str(type) ) )
+        ri.append( i + ' ' + escape( str(type) ) )
 
     return r + '\n<br> '.join( ri) + '''
   </table>
  </form>'''
 
 def ahref( url, txt =None, target ='', button= False, root =''):
-    txt = cgi.escape( txt or url)
+    txt = escape( txt or url)
     if target: target= 'target='+target
     if button:  h= '<form action="{root}{url}" {target}> <input type=submit value="{txt}"> </form>'
     else:       h= '<a href="{root}{url}" {target}> {txt}</a>'
@@ -166,7 +170,7 @@ def html( iface, title ='simulator', help ='', root ='',
 </table>
 '''
     if help: r += '<hr>' + '\n<br>'.join( help.strip().split('\n'))
-    urls = [cgi.escape( x) for x in url_doco( iface, sepattrs=' ; ') ]
+    urls = [ escape( x) for x in url_doco( iface, sepattrs=' ; ') ]
     return r + '''
 <hr>
 <b>Valid URLs</b>:<br>

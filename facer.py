@@ -39,6 +39,7 @@ class TheChannelFace( MoreChannelFace):  #implementing all methods
 '''
 
 from svd_util.struct import DictAttr
+from svd_util.attr import anymethod
 try:
     from collections import OrderedDict as dictOrder
 except:
@@ -391,6 +392,7 @@ class Method( object):
         me._returns = a or me._convert_dict( ka) or None
         return me
     def error( me, err, message =None, **ka):
+        #TODO errors are almost like input-less methods - returns etc
         me._errors.append( DictAttr( ka, err= err, message= message))
         return me
     def doc( me, text):
@@ -610,8 +612,9 @@ class FaceDeclaration( object):
 
     def methods_walk_self_instance( me):
         return me.methods_walk_instance( me)
+    @anymethod
     def methods_unimplemented( me):
-        return [ what for what in me.methods_walk_self_instance() if what.impl is None]
+        return [ what for what in me.methods_walk_instance( me) if what.impl is None]
 
     @classmethod
     def method_by_name( me, name):
