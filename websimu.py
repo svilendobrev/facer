@@ -84,7 +84,7 @@ url-param txt=1 makes a python repr, not json
     @classmethod
     @aRequest.application
     def app( me, request):
-        print me.url_map
+        #print me.url_map
         handler, values = me.url_map.bind_to_environ( request.environ ).match()
         #params = dict( request.values)
         params = dict( request.form or request.args)

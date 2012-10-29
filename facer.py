@@ -517,6 +517,15 @@ class Method( object):
         x.name = me.name
         return x
 
+    def clone( me ):
+        x = me.__class__()
+        x._inputs   = me._inputs.copy()
+        x._features += me._features
+        x._errors   += me._errors
+        if me._returns: x._returns = me._returns.copy()
+        if me._doc:     x._doc = me._doc
+        x.name = me.name
+        return x
 
 class MetaFaceDeclaration( type):
     def __init__( klas, name, bases, dict_):
