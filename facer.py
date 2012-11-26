@@ -39,7 +39,7 @@ class TheChannelFace( MoreChannelFace):  #implementing all methods
 '''
 
 from svd_util.struct import DictAttr
-from svd_util.attr import anymethod
+from svd_util.attr import anymethod, isclass, issubclass
 try:
     from collections import OrderedDict as dictOrder
 except:
@@ -107,6 +107,7 @@ class Types( object):
         @classmethod
         def convert( klas, arg):
             if isinstance( arg, klas): return arg
+            if issubclass( arg, klas): return arg
             if isinstance( arg, tuple): return klas( *arg)
             return klas( arg)
 
@@ -527,7 +528,22 @@ class Method( object):
         x.name = me.name
         return x
 
+def meta_method( f):
+    'decorator for partial helper-methods e.g. Method_User(**) being Method( user=.., **)'
+    f.meta_method = True
+    return f
+
 class MetaFaceDeclaration( type):
+    def __new__( meta, name, bases, dict_):
+        for k,v in dict_.items():
+            if (not k.startswith( '__')
+                and getattr( v, 'meta_method', None)
+                and isinstance( v, (
+                        _types.FunctionType, _types.LambdaType, ))#_types.GeneratorType, )) #_types.MethodType, ))
+                ):
+                dict_[k] = staticmethod( v)
+        return type.__new__( meta, name, bases, dict_)
+
     def __init__( klas, name, bases, dict_):
         for mdcl in klas.methods_walk():
             mdcl.decl.name = mdcl.name
